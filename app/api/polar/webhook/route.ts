@@ -26,23 +26,29 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
 
-    // Handle subscription events
-    if (event.type === 'checkout.completed' || event.type === 'subscription.created') {
-      const { customer_email } = event.data;
+    const STARTER_PRODUCT_ID = process.env.POLAR_STARTER_PRODUCT_ID ?? '';
+    const PRO_PRODUCT_ID = process.env.POLAR_PRO_PRODUCT_ID ?? '';
 
-      // Update user plan to Pro
+    const resolvePlan = (productId: string): 'starter' | 'pro' => {
+      if (productId === PRO_PRODUCT_ID) return 'pro';
+      return 'starter';
+    };
+
+    if (event.type === 'checkout.completed' || event.type === 'subscription.created') {
+      const { customer_email, product_id } = event.data;
+      const plan = resolvePlan(product_id);
+
       await User.findOneAndUpdate(
         { email: customer_email },
-        { $set: { plan: 'pro' } }
+        { $set: { plan } }
       );
 
-      console.log(`✅ User ${customer_email} upgraded to Pro`);
+      console.log(`✅ User ${customer_email} upgraded to ${plan}`);
     }
 
     if (event.type === 'subscription.cancelled' || event.type === 'subscription.expired') {
       const { customer_email } = event.data;
 
-      // Downgrade to free
       await User.findOneAndUpdate(
         { email: customer_email },
         { $set: { plan: 'free' } }

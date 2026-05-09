@@ -1,239 +1,275 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
+import { auth } from '@/lib/firebase';
 import Navbar from '@/components/Navbar';
+
+const PLANS = [
+  {
+    id: 'free',
+    name: 'Free',
+    price: 0,
+    period: 'forever',
+    description: 'Get started with the basics',
+    color: '#6b7280',
+    gradient: 'from-gray-500 to-gray-600',
+    features: [
+      { text: 'Unlimited copilot answers', included: true },
+      { text: '3 mock interviews / month', included: true },
+      { text: 'Basic question detection', included: true },
+      { text: 'Chrome extension access', included: true },
+      { text: 'Resume tailor (3 / month)', included: true },
+      { text: 'STAR & technical answer styles', included: false },
+      { text: 'Full interview report history', included: false },
+      { text: 'Priority support', included: false },
+    ],
+  },
+  {
+    id: 'starter',
+    name: 'Starter',
+    price: 9,
+    period: 'month',
+    description: 'For active job seekers',
+    color: '#6366f1',
+    gradient: 'from-indigo-500 to-violet-500',
+    badge: 'MOST POPULAR',
+    features: [
+      { text: 'Unlimited copilot answers', included: true },
+      { text: 'Unlimited mock interviews', included: true },
+      { text: 'Advanced question detection', included: true },
+      { text: 'Chrome extension access', included: true },
+      { text: 'Unlimited resume tailoring', included: true },
+      { text: 'STAR & technical answer styles', included: true },
+      { text: 'Full interview report history', included: false },
+      { text: 'Priority support', included: false },
+    ],
+  },
+  {
+    id: 'pro',
+    name: 'Pro',
+    price: 29,
+    period: 'month',
+    description: 'For professionals & power users',
+    color: '#10b981',
+    gradient: 'from-emerald-400 to-cyan-400',
+    features: [
+      { text: 'Everything in Starter', included: true },
+      { text: 'Full interview report history', included: true },
+      { text: 'Resume & answer personalization', included: true },
+      { text: 'Multi-platform meeting support', included: true },
+      { text: 'Tab audio transcription (Gemini)', included: true },
+      { text: 'Export reports as PDF', included: true },
+      { text: 'API access', included: true },
+      { text: 'Priority support', included: true },
+    ],
+  },
+];
 
 export default function PricingPage() {
   const router = useRouter();
   const { user, loading, userData } = useAuthStore();
-  const [upgrading, setUpgrading] = useState(false);
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/');
-    }
-  }, [user, loading, router]);
+  const handleUpgrade = async (planId: string) => {
+    if (!user) { router.push('/'); return; }
+    if (planId === 'free') return;
 
-  const handleUpgrade = async () => {
-    if (!user) return;
-
-    setUpgrading(true);
-
+    setLoadingPlan(planId);
     try {
-      // In production, you would create a Polar checkout session
-      // For now, we'll simulate the upgrade
-      const POLAR_CHECKOUT_URL = `https://polar.sh/checkout/${process.env.NEXT_PUBLIC_POLAR_ORGANIZATION_ID}/pro`;
-      
-      // Redirect to Polar checkout
-      window.location.href = POLAR_CHECKOUT_URL;
-    } catch (error) {
-      console.error('Upgrade error:', error);
-      setUpgrading(false);
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ plan: planId }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert(`Checkout error: ${err.error ?? 'Unknown error'}`);
+        return;
+      }
+
+      const { url } = await res.json();
+      if (url) window.location.href = url;
+    } catch (err) {
+      console.error('Checkout error:', err);
+      alert('Something went wrong. Please try again.');
+    } finally {
+      setLoadingPlan(null);
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-neon-cyan"></div>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
+  const currentPlan = userData?.plan ?? 'free';
+
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
       <Navbar />
 
-      <div className="container mx-auto px-4 py-12">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-12">
-            <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-neon-cyan to-neon-purple bg-clip-text text-transparent">
-              Choose Your Plan
-            </h1>
-            <p className="text-gray-400 text-lg">
-              Unlock unlimited interview assistance
-            </p>
-          </div>
+      <div className="max-w-6xl mx-auto px-4 py-16">
+        {/* Header */}
+        <div className="text-center mb-14">
+          <h1 className="text-5xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
+            Simple, transparent pricing
+          </h1>
+          <p className="text-lg" style={{ color: 'var(--text-muted)' }}>
+            Start free. Upgrade when you need more.
+          </p>
+        </div>
 
-          <div className="grid md:grid-cols-2 gap-8">
-            {/* Free Plan */}
-            <div className="glass-panel rounded-2xl p-8 border-2 border-gray-800">
-              <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold text-white mb-2">Free</h2>
-                <div className="text-5xl font-bold mb-2">$0</div>
-                <div className="text-gray-400">per month</div>
-              </div>
+        {/* Plan cards */}
+        <div className="grid md:grid-cols-3 gap-6">
+          {PLANS.map((plan) => {
+            const isCurrent = currentPlan === plan.id;
+            const isPaid = plan.id !== 'free';
 
-              <ul className="space-y-4 mb-8">
-                <li className="flex items-start gap-3 text-gray-300">
-                  <span className="text-neon-cyan text-xl">✓</span>
-                  <span>10 copilot answers per month</span>
-                </li>
-                <li className="flex items-start gap-3 text-gray-300">
-                  <span className="text-neon-cyan text-xl">✓</span>
-                  <span>2 mock interviews per month</span>
-                </li>
-                <li className="flex items-start gap-3 text-gray-300">
-                  <span className="text-neon-cyan text-xl">✓</span>
-                  <span>Basic question detection</span>
-                </li>
-                <li className="flex items-start gap-3 text-gray-300">
-                  <span className="text-neon-cyan text-xl">✓</span>
-                  <span>Chrome extension access</span>
-                </li>
-                <li className="flex items-start gap-3 text-gray-400">
-                  <span className="text-gray-600 text-xl">✗</span>
-                  <span>Resume personalization</span>
-                </li>
-                <li className="flex items-start gap-3 text-gray-400">
-                  <span className="text-gray-600 text-xl">✗</span>
-                  <span>Unlimited answers</span>
-                </li>
-                <li className="flex items-start gap-3 text-gray-400">
-                  <span className="text-gray-600 text-xl">✗</span>
-                  <span>Full report history</span>
-                </li>
-              </ul>
+            return (
+              <div
+                key={plan.id}
+                className="relative rounded-2xl flex flex-col overflow-hidden"
+                style={{
+                  background: 'var(--surface)',
+                  border: `1px solid ${plan.badge ? plan.color + '50' : 'var(--border)'}`,
+                  boxShadow: plan.badge ? `0 0 40px ${plan.color}18` : 'none',
+                }}
+              >
+                {plan.badge && (
+                  <div
+                    className="absolute top-0 left-0 right-0 text-center text-xs font-bold py-1.5 tracking-widest"
+                    style={{ background: `linear-gradient(90deg, ${plan.color}, #818cf8)`, color: 'white' }}
+                  >
+                    {plan.badge}
+                  </div>
+                )}
 
-              {userData?.plan === 'free' && (
-                <div className="py-3 bg-gray-800 text-center rounded-lg text-gray-400 font-semibold">
-                  Current Plan
+                <div className={`p-8 flex-1 ${plan.badge ? 'pt-10' : ''}`}>
+                  {/* Plan name & price */}
+                  <div className="mb-6">
+                    <h2 className="text-xl font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
+                      {plan.name}
+                    </h2>
+                    <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+                      {plan.description}
+                    </p>
+                    <div className="flex items-end gap-1">
+                      <span className="text-5xl font-bold" style={{ color: plan.badge ? plan.color : 'var(--text-primary)' }}>
+                        ${plan.price}
+                      </span>
+                      {isPaid && (
+                        <span className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
+                          / {plan.period}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Features */}
+                  <ul className="space-y-3 mb-8">
+                    {plan.features.map((f, i) => (
+                      <li key={i} className="flex items-start gap-3 text-sm">
+                        <span
+                          className="mt-0.5 flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-xs"
+                          style={{
+                            background: f.included ? `${plan.color}20` : 'var(--surface-2)',
+                            color: f.included ? plan.color : 'var(--text-muted)',
+                          }}
+                        >
+                          {f.included ? '✓' : '✗'}
+                        </span>
+                        <span style={{ color: f.included ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                          {f.text}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-              )}
-            </div>
 
-            {/* Pro Plan */}
-            <div className="glass-panel rounded-2xl p-8 border-2 border-neon-cyan relative overflow-hidden">
-              <div className="absolute top-4 right-4 bg-gradient-to-r from-neon-cyan to-neon-purple text-black text-xs font-bold px-3 py-1 rounded-full">
-                POPULAR
-              </div>
-
-              <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold text-white mb-2">Pro</h2>
-                <div className="text-5xl font-bold mb-2 bg-gradient-to-r from-neon-cyan to-neon-purple bg-clip-text text-transparent">
-                  $19
+                {/* CTA */}
+                <div className="px-8 pb-8">
+                  {isCurrent ? (
+                    <div
+                      className="w-full py-3 rounded-xl text-sm font-semibold text-center"
+                      style={{ background: `${plan.color}15`, color: plan.color, border: `1px solid ${plan.color}30` }}
+                    >
+                      ✓ Current Plan
+                    </div>
+                  ) : plan.id === 'free' ? (
+                    <div
+                      className="w-full py-3 rounded-xl text-sm font-semibold text-center"
+                      style={{ background: 'var(--surface-2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+                    >
+                      Default Plan
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleUpgrade(plan.id)}
+                      disabled={loadingPlan === plan.id}
+                      className="w-full py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-60"
+                      style={{
+                        background: `linear-gradient(135deg, ${plan.color}, #818cf8)`,
+                        color: 'white',
+                      }}
+                    >
+                      {loadingPlan === plan.id ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                          Redirecting…
+                        </span>
+                      ) : (
+                        `Get ${plan.name} →`
+                      )}
+                    </button>
+                  )}
                 </div>
-                <div className="text-gray-400">per month</div>
               </div>
+            );
+          })}
+        </div>
 
-              <ul className="space-y-4 mb-8">
-                <li className="flex items-start gap-3 text-white">
-                  <span className="text-neon-cyan text-xl">✓</span>
-                  <span className="font-semibold">Unlimited copilot answers</span>
-                </li>
-                <li className="flex items-start gap-3 text-white">
-                  <span className="text-neon-cyan text-xl">✓</span>
-                  <span className="font-semibold">Unlimited mock interviews</span>
-                </li>
-                <li className="flex items-start gap-3 text-white">
-                  <span className="text-neon-cyan text-xl">✓</span>
-                  <span className="font-semibold">Resume personalization</span>
-                </li>
-                <li className="flex items-start gap-3 text-white">
-                  <span className="text-neon-cyan text-xl">✓</span>
-                  <span>Advanced question detection</span>
-                </li>
-                <li className="flex items-start gap-3 text-white">
-                  <span className="text-neon-cyan text-xl">✓</span>
-                  <span>All answer styles (STAR, Technical)</span>
-                </li>
-                <li className="flex items-start gap-3 text-white">
-                  <span className="text-neon-cyan text-xl">✓</span>
-                  <span>Full report history</span>
-                </li>
-                <li className="flex items-start gap-3 text-white">
-                  <span className="text-neon-cyan text-xl">✓</span>
-                  <span>Priority support</span>
-                </li>
-              </ul>
-
-              {userData?.plan === 'pro' ? (
-                <div className="py-3 bg-gradient-to-r from-neon-cyan to-neon-purple text-black text-center rounded-lg font-bold">
-                  ⭐ Current Plan
-                </div>
-              ) : (
-                <button
-                  onClick={handleUpgrade}
-                  disabled={upgrading}
-                  className="w-full py-4 bg-gradient-to-r from-neon-cyan to-neon-purple text-black font-bold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
-                >
-                  {upgrading ? 'Redirecting...' : 'Upgrade to Pro'}
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Features Comparison */}
-          <div className="mt-16">
-            <h2 className="text-3xl font-bold text-center mb-8 text-white">
-              Why Upgrade to Pro?
-            </h2>
-
-            <div className="grid md:grid-cols-3 gap-6">
-              <div className="glass-panel rounded-xl p-6 text-center">
-                <div className="text-4xl mb-4">🚀</div>
-                <h3 className="text-xl font-bold text-white mb-2">Unlimited Usage</h3>
-                <p className="text-gray-400 text-sm">
-                  No limits on answers or mock interviews. Practice as much as you need.
-                </p>
+        {/* Feature comparison table */}
+        <div className="mt-20">
+          <h2 className="text-2xl font-bold text-center mb-8" style={{ color: 'var(--text-primary)' }}>
+            Why upgrade?
+          </h2>
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              { icon: '🎙️', title: 'Dual audio detection', desc: 'Captures both your mic and the interviewer\'s voice via tab audio for complete question detection.' },
+              { icon: '✏️', title: 'Resume tailoring', desc: 'AI rewrites your resume to match each job description while preserving your original format.' },
+              { icon: '📊', title: 'Full report history', desc: 'Review every past session, track improvement, and export your interview reports.' },
+            ].map((f) => (
+              <div
+                key={f.title}
+                className="rounded-xl p-6 text-center"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+              >
+                <div className="text-4xl mb-3">{f.icon}</div>
+                <h3 className="font-bold mb-2" style={{ color: 'var(--text-primary)' }}>{f.title}</h3>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{f.desc}</p>
               </div>
-
-              <div className="glass-panel rounded-xl p-6 text-center">
-                <div className="text-4xl mb-4">🎯</div>
-                <h3 className="text-xl font-bold text-white mb-2">Personalized Answers</h3>
-                <p className="text-gray-400 text-sm">
-                  Answers tailored to your resume and experience for authentic responses.
-                </p>
-              </div>
-
-              <div className="glass-panel rounded-xl p-6 text-center">
-                <div className="text-4xl mb-4">📊</div>
-                <h3 className="text-xl font-bold text-white mb-2">Full Analytics</h3>
-                <p className="text-gray-400 text-sm">
-                  Track your performance over time with detailed reports and insights.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* FAQ */}
-          <div className="mt-16">
-            <h2 className="text-3xl font-bold text-center mb-8 text-white">
-              Frequently Asked Questions
-            </h2>
-
-            <div className="space-y-4">
-              <details className="glass-panel rounded-xl p-6">
-                <summary className="font-semibold text-white cursor-pointer">
-                  Can I cancel anytime?
-                </summary>
-                <p className="text-gray-400 mt-3 text-sm">
-                  Yes! You can cancel your Pro subscription at any time. You'll retain access until the end of your billing period.
-                </p>
-              </details>
-
-              <details className="glass-panel rounded-xl p-6">
-                <summary className="font-semibold text-white cursor-pointer">
-                  Is my data secure?
-                </summary>
-                <p className="text-gray-400 mt-3 text-sm">
-                  Absolutely. We use Firebase authentication and encrypt all data. Your interview sessions are private and never shared.
-                </p>
-              </details>
-
-              <details className="glass-panel rounded-xl p-6">
-                <summary className="font-semibold text-white cursor-pointer">
-                  Does the Chrome extension work on all platforms?
-                </summary>
-                <p className="text-gray-400 mt-3 text-sm">
-                  Yes! Our extension supports Google Meet, Zoom web client, and Microsoft Teams. It works invisibly in the background.
-                </p>
-              </details>
-            </div>
+            ))}
           </div>
         </div>
+
+        {/* Setup note */}
+        <p className="text-center mt-10 text-xs" style={{ color: 'var(--text-muted)' }}>
+          Payments powered by{' '}
+          <a href="https://polar.sh" target="_blank" rel="noopener noreferrer" className="underline">
+            Polar.sh
+          </a>
+          . Cancel anytime. You keep access until the end of your billing period.
+        </p>
       </div>
     </div>
   );

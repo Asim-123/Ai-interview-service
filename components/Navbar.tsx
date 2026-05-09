@@ -10,7 +10,6 @@ import { useRouter } from 'next/navigation';
 const NAV_ITEMS = [
   { href: '/copilot', label: 'Live Assistant' },
   { href: '/mock-interview', label: 'Mock Interview' },
-  { href: '/resume', label: 'Resume' },
   { href: '/reports', label: 'Reports' },
   { href: '/pricing', label: 'Pricing' },
 ];

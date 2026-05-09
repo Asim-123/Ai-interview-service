@@ -6,7 +6,7 @@ export interface IUser extends Document {
   displayName: string;
   photoURL?: string;
   provider: 'google' | 'github';
-  plan: 'free' | 'pro';
+  plan: 'free' | 'starter' | 'pro';
   copilotAnswersUsed: number;
   mockInterviewsUsed: number;
   resume?: {
@@ -27,7 +27,7 @@ const UserSchema = new Schema<IUser>(
     displayName: { type: String, required: true },
     photoURL: { type: String },
     provider: { type: String, enum: ['google', 'github'], required: true },
-    plan: { type: String, enum: ['free', 'pro'], default: 'free' },
+    plan: { type: String, enum: ['free', 'starter', 'pro'], default: 'free' },
     copilotAnswersUsed: { type: Number, default: 0 },
     mockInterviewsUsed: { type: Number, default: 0 },
     resume: {
